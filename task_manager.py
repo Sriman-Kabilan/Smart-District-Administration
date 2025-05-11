@@ -1,122 +1,77 @@
 import streamlit as st
 import pandas as pd
-import uuid
 from datetime import datetime, timedelta
 from auth import get_user_department, get_user_fullname, get_staff_by_department, log_activity
+from db_service import (
+    create_task_db, get_tasks_db, update_task_status_db, 
+    add_task_comment_db, get_task_by_id_db
+)
 
 # Initialize session state for tasks if not exists
 def initialize_task_data():
-    if "tasks" not in st.session_state:
-        st.session_state.tasks = []
+    # No need to initialize anything since we're using the database
+    pass
 
 # Function to create a new task
 def create_task(task_name, description, assigned_to, priority, due_date, created_by, department):
-    task_id = str(uuid.uuid4())[:8].upper()
+    # Get the assigned user's ID
+    staff_list = get_staff_by_department(department)
+    assigned_to_id = None
     
-    new_task = {
-        "task_id": f"T-{task_id}",
-        "task_name": task_name,
-        "description": description,
-        "assigned_to": assigned_to,
-        "created_by": created_by,
-        "department": department,
-        "priority": priority,
-        "status": "Pending",
-        "due_date": due_date,
-        "created_date": datetime.now().strftime("%Y-%m-%d"),
-        "completed_date": None,
-        "comments": []
-    }
+    for staff in staff_list:
+        if staff["full_name"] == assigned_to:
+            assigned_to_id = staff["id"]
+            break
     
-    # Add task to session state
-    st.session_state.tasks.append(new_task)
+    if assigned_to_id is None:
+        st.error(f"Could not find user {assigned_to}")
+        return None
     
-    # Log activity
-    log_activity(created_by, f"created task {task_id}", "successful")
+    # Get creator's user_id from session state
+    created_by_id = st.session_state.user_id
+    
+    # Create the task in the database
+    task_id = create_task_db(
+        task_name=task_name,
+        description=description,
+        assigned_to_id=assigned_to_id,
+        priority=priority,
+        due_date=due_date,
+        created_by_id=created_by_id,
+        department=department
+    )
     
     return task_id
 
 # Function to get tasks filtered by parameters
 def get_tasks(department=None, assigned_to=None, created_by=None, status=None, priority=None):
-    if "tasks" not in st.session_state:
-        return []
+    # Convert full names to IDs if provided
+    assigned_to_id = None
+    created_by_id = None
     
-    tasks = st.session_state.tasks
-    filtered_tasks = tasks.copy()
-    
-    # Apply filters
-    if department:
-        filtered_tasks = [task for task in filtered_tasks if task["department"] == department]
-    
-    if assigned_to:
-        filtered_tasks = [task for task in filtered_tasks if task["assigned_to"] == assigned_to]
-    
-    if created_by:
-        filtered_tasks = [task for task in filtered_tasks if task["created_by"] == created_by]
-    
-    if status:
-        filtered_tasks = [task for task in filtered_tasks if task["status"] == status]
-        
-    if priority:
-        filtered_tasks = [task for task in filtered_tasks if task["priority"] == priority]
-    
-    return filtered_tasks
+    # Use the database service to get tasks
+    return get_tasks_db(
+        department=department,
+        assigned_to_id=assigned_to_id,
+        created_by_id=created_by_id,
+        status=status,
+        priority=priority
+    )
 
 # Function to update task status
 def update_task_status(task_id, new_status, updated_by):
-    if "tasks" not in st.session_state:
-        return False
-    
-    for i, task in enumerate(st.session_state.tasks):
-        if task["task_id"] == task_id:
-            st.session_state.tasks[i]["status"] = new_status
-            
-            # If completed, set completed date
-            if new_status == "Completed":
-                st.session_state.tasks[i]["completed_date"] = datetime.now().strftime("%Y-%m-%d")
-            
-            # Log activity
-            log_activity(updated_by, f"updated task {task_id} status to {new_status}", "successful")
-            
-            return True
-    
-    return False
+    # Use database service
+    return update_task_status_db(task_id, new_status, updated_by)
 
 # Function to add a comment to a task
 def add_task_comment(task_id, comment_text, comment_by):
-    if "tasks" not in st.session_state:
-        return False
-    
-    for i, task in enumerate(st.session_state.tasks):
-        if task["task_id"] == task_id:
-            comment = {
-                "text": comment_text,
-                "by": comment_by,
-                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            }
-            
-            if "comments" not in st.session_state.tasks[i]:
-                st.session_state.tasks[i]["comments"] = []
-                
-            st.session_state.tasks[i]["comments"].append(comment)
-            
-            # Log activity
-            log_activity(comment_by, f"commented on task {task_id}", "successful")
-            
-            return True
-    
-    return False
+    # Use database service
+    return add_task_comment_db(task_id, comment_text, comment_by)
 
 # Function to get task by ID
 def get_task_by_id(task_id):
-    if "tasks" not in st.session_state:
-        return None
-    
-    for task in st.session_state.tasks:
-        if task["task_id"] == task_id:
-            return task
-    
-    return None
+    # Use database service
+    return get_task_by_id_db(task_id)
 
 # Function to display task creation form for department heads
 def display_task_creation_form():
@@ -156,8 +111,11 @@ def display_task_creation_form():
                     department=department
                 )
                 
-                st.success(f"Task created successfully with ID: {task_id}")
-                return True
+                if task_id:
+                    st.success(f"Task created successfully with ID: {task_id}")
+                    return True
+                else:
+                    st.error("Failed to create task")
     
     return False
 
@@ -195,28 +153,31 @@ def display_task_list():
             view_type = "Assigned to Me"
     
     # Apply filters
+    if status_filter != "All":
+        status = status_filter
+    else:
+        status = None
+        
+    if priority_filter != "All":
+        priority = priority_filter
+    else:
+        priority = None
+    
+    # Get tasks based on role and view selection
     if role == "department_head":
         if view_type == "All Department Tasks":
-            filtered_tasks = get_tasks(department=department)
+            filtered_tasks = get_tasks(department=department, status=status, priority=priority)
         elif view_type == "Created by Me":
-            filtered_tasks = get_tasks(department=department, created_by=full_name)
+            filtered_tasks = get_tasks(department=department, created_by=full_name, status=status, priority=priority)
         else:
             # If viewing for specific staff member
             staff_list = get_staff_by_department(department)
             staff_names = [staff["full_name"] for staff in staff_list]
             selected_staff = st.selectbox("Select Staff Member", staff_names)
-            filtered_tasks = get_tasks(department=department, assigned_to=selected_staff)
+            filtered_tasks = get_tasks(department=department, assigned_to=selected_staff, status=status, priority=priority)
     else:
         # Staff members can only see tasks assigned to them
-        filtered_tasks = get_tasks(department=department, assigned_to=full_name)
-    
-    # Apply status filter
-    if status_filter != "All":
-        filtered_tasks = [task for task in filtered_tasks if task["status"] == status_filter]
-    
-    # Apply priority filter
-    if priority_filter != "All":
-        filtered_tasks = [task for task in filtered_tasks if task["priority"] == priority_filter]
+        filtered_tasks = get_tasks(department=department, assigned_to=full_name, status=status, priority=priority)
     
     # Display tasks
     if not filtered_tasks:
@@ -294,7 +255,7 @@ def display_task_list():
                 new_comment = st.text_area("Add Comment", key=f"comment_{task['task_id']}")
                 if st.button("Submit Comment", key=f"submit_comment_{task['task_id']}"):
                     if new_comment:
-                        if add_task_comment(task["task_id"], new_comment, full_name):
+                        if add_task_comment(task["task_id"], new_comment, st.session_state.username):
                             st.success("Comment added successfully")
                             st.rerun()
                         else:
