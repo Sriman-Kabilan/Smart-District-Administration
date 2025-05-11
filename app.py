@@ -40,6 +40,26 @@ def main():
                 username = st.text_input("Username", key="login_username")
                 password = st.text_input("Password", type="password", key="login_password")
                 
+                # Display sample user credentials
+                with st.expander("Available Test Users"):
+                    st.markdown("""
+                    ### Administrator
+                    - Username: `admin`
+                    - Password: `admin123`
+                    
+                    ### Department Heads
+                    - Public Works: `public_works_head` (Password: `dept123`)
+                    - Health Services: `health_head` (Password: `dept123`)
+                    - Education: `education_head` (Password: `dept123`)
+                    - Transportation: `transportation_head` (Password: `dept123`)
+                    - Security: `security_head` (Password: `dept123`)
+                    
+                    ### Staff Members
+                    - Public Works: `pw_staff1`, `pw_staff2`, `pw_staff3` (Password: `staff123`)
+                    - Health Services: `health_staff1`, `health_staff2` (Password: `staff123`)
+                    - Other Departments: Various staff usernames with `staff123` password
+                    """)
+                
                 if st.button("Login", key="login_button"):
                     authentication_status, user_role = authenticate_user(username, password)
                     

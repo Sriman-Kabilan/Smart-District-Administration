@@ -12,6 +12,7 @@ def hash_password(password):
 def create_user_data():
     # Users data structure with role-based access
     users = {
+        # Administrator Account
         "admin": {
             "password": hash_password("admin123"),
             "role": "administrator",
@@ -19,33 +20,143 @@ def create_user_data():
             "department": "Administration",
             "email": "admin@district.gov"
         },
-        "department1": {
+        
+        # Department Heads
+        "public_works_head": {
             "password": hash_password("dept123"),
             "role": "department_head",
-            "full_name": "Department Head 1",
+            "full_name": "James Wilson",
             "department": "Public Works",
-            "email": "dept1@district.gov"
+            "email": "james.wilson@district.gov"
         },
-        "department2": {
+        "health_head": {
             "password": hash_password("dept123"),
             "role": "department_head",
-            "full_name": "Department Head 2",
+            "full_name": "Sarah Johnson",
             "department": "Health Services",
-            "email": "dept2@district.gov"
+            "email": "sarah.johnson@district.gov"
         },
-        "staff1": {
+        "education_head": {
+            "password": hash_password("dept123"),
+            "role": "department_head",
+            "full_name": "Michael Brown",
+            "department": "Education",
+            "email": "michael.brown@district.gov"
+        },
+        "transportation_head": {
+            "password": hash_password("dept123"),
+            "role": "department_head",
+            "full_name": "Emily Davis",
+            "department": "Transportation",
+            "email": "emily.davis@district.gov"
+        },
+        "security_head": {
+            "password": hash_password("dept123"),
+            "role": "department_head",
+            "full_name": "Robert Johnson",
+            "department": "Security",
+            "email": "robert.johnson@district.gov"
+        },
+        
+        # Public Works Staff
+        "pw_staff1": {
             "password": hash_password("staff123"),
             "role": "staff",
-            "full_name": "Staff Member 1",
+            "full_name": "John Smith",
             "department": "Public Works",
-            "email": "staff1@district.gov"
+            "email": "john.smith@district.gov"
         },
-        "staff2": {
+        "pw_staff2": {
             "password": hash_password("staff123"),
             "role": "staff",
-            "full_name": "Staff Member 2",
+            "full_name": "Maria Garcia",
+            "department": "Public Works",
+            "email": "maria.garcia@district.gov"
+        },
+        "pw_staff3": {
+            "password": hash_password("staff123"),
+            "role": "staff",
+            "full_name": "Lisa Wong",
+            "department": "Public Works",
+            "email": "lisa.wong@district.gov"
+        },
+        
+        # Health Services Staff
+        "health_staff1": {
+            "password": hash_password("staff123"),
+            "role": "staff",
+            "full_name": "David Lee",
             "department": "Health Services",
-            "email": "staff2@district.gov"
+            "email": "david.lee@district.gov"
+        },
+        "health_staff2": {
+            "password": hash_password("staff123"),
+            "role": "staff",
+            "full_name": "Jessica Williams",
+            "department": "Health Services",
+            "email": "jessica.williams@district.gov"
+        },
+        "health_staff3": {
+            "password": hash_password("staff123"),
+            "role": "staff",
+            "full_name": "Michael Brown",
+            "department": "Health Services",
+            "email": "michael.brown.health@district.gov"
+        },
+        
+        # Education Staff
+        "edu_staff1": {
+            "password": hash_password("staff123"),
+            "role": "staff",
+            "full_name": "Thomas Moore",
+            "department": "Education",
+            "email": "thomas.moore@district.gov"
+        },
+        "edu_staff2": {
+            "password": hash_password("staff123"),
+            "role": "staff",
+            "full_name": "Jennifer Martin",
+            "department": "Education",
+            "email": "jennifer.martin@district.gov"
+        },
+        
+        # Transportation Staff
+        "trans_staff1": {
+            "password": hash_password("staff123"),
+            "role": "staff",
+            "full_name": "Daniel Rodriguez",
+            "department": "Transportation",
+            "email": "daniel.rodriguez@district.gov"
+        },
+        "trans_staff2": {
+            "password": hash_password("staff123"),
+            "role": "staff",
+            "full_name": "Amanda Clark",
+            "department": "Transportation",
+            "email": "amanda.clark@district.gov"
+        },
+        "trans_staff3": {
+            "password": hash_password("staff123"),
+            "role": "staff",
+            "full_name": "William Taylor",
+            "department": "Transportation",
+            "email": "william.taylor@district.gov"
+        },
+        
+        # Security Staff
+        "security_staff1": {
+            "password": hash_password("staff123"),
+            "role": "staff",
+            "full_name": "Richard Harris",
+            "department": "Security",
+            "email": "richard.harris@district.gov"
+        },
+        "security_staff2": {
+            "password": hash_password("staff123"),
+            "role": "staff",
+            "full_name": "Patricia Martinez",
+            "department": "Security",
+            "email": "patricia.martinez@district.gov"
         }
     }
     
@@ -70,6 +181,44 @@ def authenticate_user(username, password):
         log_activity(username, "login", "failed")
     
     return False, None
+
+# Function to get all users by role
+def get_users_by_role(role):
+    users_list = []
+    for username, user_data in st.session_state.users.items():
+        if user_data["role"] == role:
+            users_list.append({
+                "username": username,
+                "full_name": user_data["full_name"],
+                "department": user_data["department"],
+                "email": user_data["email"]
+            })
+    return users_list
+
+# Function to get all users in a specific department
+def get_users_by_department(department):
+    users_list = []
+    for username, user_data in st.session_state.users.items():
+        if user_data["department"] == department:
+            users_list.append({
+                "username": username,
+                "full_name": user_data["full_name"],
+                "role": user_data["role"],
+                "email": user_data["email"]
+            })
+    return users_list
+
+# Function to get staff members of a department
+def get_staff_by_department(department):
+    users_list = []
+    for username, user_data in st.session_state.users.items():
+        if user_data["department"] == department and user_data["role"] == "staff":
+            users_list.append({
+                "username": username,
+                "full_name": user_data["full_name"],
+                "email": user_data["email"]
+            })
+    return users_list
 
 # Function to check if a user is authenticated
 def check_user_auth():
