@@ -369,6 +369,7 @@ def display_department_head_dashboard():
     
     st.title(f"{department} Department Dashboard")
     st.write(f"Welcome, {st.session_state.username} (Department Head)")
+    st.info("As a department head, you can view all tasks in your department and manage your staff members.")
     
     # Create tabs for different dashboard sections
     dashboard_tabs = st.tabs(["Department Overview", "Performance Metrics", "Staff Management", "Task Management"])
@@ -412,14 +413,26 @@ def display_department_head_dashboard():
         col1, col2 = st.columns(2)
         
         with col1:
-            chart = create_performance_chart(department_data, "weekly")
-            if chart is not None:
-                st.altair_chart(chart, use_container_width=True)
+            try:
+                chart = create_performance_chart(department_data, "weekly")
+                if chart is not None:
+                    st.altair_chart(chart, use_container_width=True)
+                else:
+                    st.info("No performance data available to display")
+            except Exception as e:
+                st.warning(f"Could not load performance chart: {str(e)}")
+                st.info("Performance data will be available after more tasks are completed")
         
         with col2:
-            resource_chart = create_resource_chart(department_data)
-            if resource_chart is not None:
-                st.altair_chart(resource_chart, use_container_width=True)
+            try:
+                resource_chart = create_resource_chart(department_data)
+                if resource_chart is not None:
+                    st.altair_chart(resource_chart, use_container_width=True)
+                else:
+                    st.info("No resource data available to display")
+            except Exception as e:
+                st.warning(f"Could not load resource chart: {str(e)}")
+                st.info("Resource data will be available after department allocations are recorded")
     
     # Staff Management Tab
     with dashboard_tabs[2]:
@@ -495,6 +508,7 @@ def display_staff_dashboard():
     
     st.title("Staff Dashboard")
     st.write(f"Welcome, {full_name} ({department})")
+    st.info("As a staff member, you can only view and manage tasks assigned to you.")
     
     # Create tabs for different dashboard sections
     dashboard_tabs = st.tabs(["Task Overview", "Manage My Tasks", "My Performance"])

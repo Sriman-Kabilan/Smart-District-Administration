@@ -49,6 +49,10 @@ def get_tasks(department=None, assigned_to=None, created_by=None, status=None, p
     assigned_to_id = None
     created_by_id = None
     
+    # If a staff member is requesting tasks, they should only see their own tasks
+    if st.session_state.user_role == "staff" and assigned_to is None:
+        assigned_to = get_user_fullname()
+    
     # Use the database service to get tasks
     return get_tasks_db(
         department=department,
@@ -176,7 +180,8 @@ def display_task_list():
             selected_staff = st.selectbox("Select Staff Member", staff_names)
             filtered_tasks = get_tasks(department=department, assigned_to=selected_staff, status=status, priority=priority)
     else:
-        # Staff members can only see tasks assigned to them
+        # Staff members can only see tasks assigned to them - force this regardless of other parameters
+        st.write("**Note:** As a staff member, you can only view tasks assigned to you.")
         filtered_tasks = get_tasks(department=department, assigned_to=full_name, status=status, priority=priority)
     
     # Display tasks
