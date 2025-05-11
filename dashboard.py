@@ -9,8 +9,9 @@ from datetime import datetime, timedelta
 from utils.data_handler import get_department_data, get_performance_data, get_resource_data, get_task_data
 from utils.visualization import create_kpi_card, create_performance_chart, create_resource_chart
 from utils.kpi_calculations import calculate_performance_metrics
-from task_manager import initialize_task_data, display_task_creation_form, display_task_list, display_task_dashboard
+from task_manager import initialize_task_data, display_task_creation_form, display_task_list, display_task_dashboard, get_tasks, create_task
 from db_service import get_all_users, update_user_db, delete_user_db, register_user_db
+from auth import get_staff_by_department, get_users_by_department, get_user_fullname, log_activity
 
 # Admin Dashboard
 def display_admin_dashboard():
@@ -482,12 +483,105 @@ def display_department_head_dashboard():
         st.subheader("Task Management")
         
         # Create subtabs for creating and managing tasks
-        task_tabs = st.tabs(["Create New Task", "Task Dashboard", "Manage Tasks"])
+        task_tabs = st.tabs(["Assign Tasks", "Task Dashboard", "Manage Tasks", "Bulk Assignment"])
         
+        # Assign Tasks Tab - Enhanced for department heads
         with task_tabs[0]:
-            # Display task creation form
-            display_task_creation_form()
+            st.subheader("Assign New Tasks to Staff")
             
+            # Get staff members for this department
+            staff_list = get_staff_by_department(department)
+            
+            if not staff_list:
+                st.warning(f"No staff members found in the {department} department.")
+                st.info("Please contact the administrator to add staff members to your department.")
+            else:
+                # Use a more visible UI for task assignment
+                st.write("### Assign Task to Staff Member")
+                
+                with st.form("assign_task_form"):
+                    # Task details
+                    task_name = st.text_input("Task Name", placeholder="Enter a descriptive task name")
+                    description = st.text_area("Task Description", placeholder="Provide detailed instructions for this task")
+                    
+                    # Staff selection with additional info
+                    st.write("**Select Staff Member to Assign:**")
+                    
+                    # Create radio buttons with staff names
+                    staff_names = [staff["full_name"] for staff in staff_list]
+                    assigned_to = st.selectbox(
+                        "Assign To", 
+                        staff_names,
+                        help="Choose the staff member responsible for completing this task"
+                    )
+                    
+                    # Task details
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        priority = st.select_slider(
+                            "Priority", 
+                            options=["Low", "Medium", "High", "Critical"],
+                            value="Medium",
+                            help="Set the priority level for this task"
+                        )
+                    
+                    with col2:
+                        due_date = st.date_input(
+                            "Due Date", 
+                            value=datetime.now() + timedelta(days=7),
+                            min_value=datetime.now().date(),
+                            help="When should this task be completed by?"
+                        )
+                    
+                    # Submit button with clear label
+                    submit = st.form_submit_button("Assign Task", use_container_width=True)
+                    
+                    if submit:
+                        if not task_name:
+                            st.error("Task name is required")
+                        elif not description:
+                            st.error("Task description is required")
+                        else:
+                            # Get the creator's name for the record
+                            created_by = get_user_fullname()
+                            
+                            # Create the task
+                            task_id = create_task(
+                                task_name=task_name,
+                                description=description,
+                                assigned_to=assigned_to,
+                                priority=priority,
+                                due_date=due_date.strftime("%Y-%m-%d"),
+                                created_by=created_by,
+                                department=department
+                            )
+                            
+                            if task_id:
+                                st.success(f"✅ Task '{task_name}' successfully assigned to {assigned_to}")
+                            else:
+                                st.error("Failed to create task. Please try again.")
+                
+                # Show recently assigned tasks
+                st.write("### Recently Assigned Tasks")
+                
+                # Get tasks created by current user
+                recent_tasks = get_tasks(department=department, created_by=get_user_fullname())
+                
+                # Sort by most recent
+                sorted_tasks = sorted(recent_tasks, key=lambda x: x["created_date"], reverse=True)[:5]
+                
+                if sorted_tasks:
+                    for task in sorted_tasks:
+                        status_color = "green" if task["status"] == "Completed" else "blue" if task["status"] == "In Progress" else "orange"
+                        
+                        st.markdown(
+                            f"**{task['task_name']}** - Assigned to: **{task['assigned_to']}** - "
+                            f"Priority: **{task['priority']}** - Status: **:{status_color}[{task['status']}]**"
+                        )
+                else:
+                    st.info("No recently assigned tasks found. Start by assigning a task above.")
+        
         with task_tabs[1]:
             # Display task dashboard with statistics
             display_task_dashboard()
@@ -495,6 +589,84 @@ def display_department_head_dashboard():
         with task_tabs[2]:
             # Display the task list interface
             display_task_list()
+            
+        # Bulk Assignment Tab
+        with task_tabs[3]:
+            st.subheader("Bulk Task Assignment")
+            st.write("Assign the same task to multiple staff members at once.")
+            
+            with st.form("bulk_assign_form"):
+                # Task details
+                task_name = st.text_input("Task Name", placeholder="Enter a descriptive task name", key="bulk_task_name")
+                description = st.text_area("Task Description", placeholder="Provide detailed instructions for this task", key="bulk_description")
+                
+                # Multi-select for staff members
+                staff_list = get_staff_by_department(department)
+                staff_names = [staff["full_name"] for staff in staff_list]
+                
+                selected_staff = st.multiselect(
+                    "Select Staff Members",
+                    options=staff_names,
+                    help="Choose multiple staff members to assign this task to"
+                )
+                
+                # Task details
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    priority = st.select_slider(
+                        "Priority", 
+                        options=["Low", "Medium", "High", "Critical"],
+                        value="Medium",
+                        help="Set the priority level for this task",
+                        key="bulk_priority"
+                    )
+                
+                with col2:
+                    due_date = st.date_input(
+                        "Due Date", 
+                        value=datetime.now() + timedelta(days=7),
+                        min_value=datetime.now().date(),
+                        help="When should this task be completed by?",
+                        key="bulk_due_date"
+                    )
+                
+                # Submit button
+                submit = st.form_submit_button("Assign to Selected Staff", use_container_width=True)
+                
+                if submit:
+                    if not task_name:
+                        st.error("Task name is required")
+                    elif not description:
+                        st.error("Task description is required")
+                    elif not selected_staff:
+                        st.error("Please select at least one staff member")
+                    else:
+                        # Get the creator's name for the record
+                        created_by = get_user_fullname()
+                        
+                        # Track successful assignments
+                        successful_assignments = 0
+                        
+                        # Create the task for each selected staff member
+                        for staff_name in selected_staff:
+                            task_id = create_task(
+                                task_name=task_name,
+                                description=description,
+                                assigned_to=staff_name,
+                                priority=priority,
+                                due_date=due_date.strftime("%Y-%m-%d"),
+                                created_by=created_by,
+                                department=department
+                            )
+                            
+                            if task_id:
+                                successful_assignments += 1
+                        
+                        if successful_assignments > 0:
+                            st.success(f"✅ Task '{task_name}' successfully assigned to {successful_assignments} staff members.")
+                        else:
+                            st.error("Failed to create tasks. Please try again.")
 
 # Staff Dashboard
 def display_staff_dashboard():
