@@ -2,7 +2,7 @@ import streamlit as st
 import hashlib
 from datetime import datetime
 from db_service import (
-    initialize_database, authenticate_user_db, get_user_by_username,
+    initialize_database, authenticate_user_db, get_user_by_username, register_user_db,
     get_users_by_role as get_users_by_role_db,
     get_users_by_department as get_users_by_department_db,
     get_staff_by_department as get_staff_by_department_db,
@@ -29,6 +29,25 @@ def authenticate_user(username, password):
         return True, role
     
     return False, None
+
+# Function to register a new user
+def register_user(username, password, full_name, email, role, department):
+    """
+    Register a new user with the given details.
+    
+    Parameters:
+    - username: Unique username for the new user
+    - password: Password for the new user
+    - full_name: Full name of the user
+    - email: Email address of the user
+    - role: User role (administrator, department_head, staff)
+    - department: Department name the user belongs to
+    
+    Returns:
+    - Tuple of (success, message, user_id)
+    """
+    # Use database registration service
+    return register_user_db(username, password, full_name, email, role, department)
 
 # Function to get all users by role
 def get_users_by_role(role):

@@ -1,5 +1,5 @@
 import streamlit as st
-from auth import authenticate_user, create_user_data, check_user_auth
+from auth import authenticate_user, create_user_data, check_user_auth, register_user
 from dashboard import display_admin_dashboard, display_department_head_dashboard, display_staff_dashboard
 import os
 
@@ -72,7 +72,65 @@ def main():
                         st.error("Invalid username or password")
             
             with register_tab:
-                st.info("Please contact the administrator to create a new account.")
+                with st.form("registration_form"):
+                    st.subheader("Register New Account")
+                    
+                    # Personal information
+                    full_name = st.text_input("Full Name", key="reg_full_name")
+                    username = st.text_input("Username", key="reg_username")
+                    email = st.text_input("Email", key="reg_email")
+                    
+                    # Password fields
+                    password = st.text_input("Password", type="password", key="reg_password")
+                    confirm_password = st.text_input("Confirm Password", type="password", key="reg_confirm_password")
+                    
+                    # Role and department
+                    role = st.selectbox(
+                        "Role", 
+                        ["staff", "department_head"],
+                        index=0,
+                        key="reg_role"
+                    )
+                    
+                    department = st.selectbox(
+                        "Department",
+                        ["Public Works", "Health Services", "Education", "Transportation", "Security"],
+                        key="reg_department"
+                    )
+                    
+                    # Admin code for special roles
+                    admin_code = ""
+                    if role == "department_head":
+                        admin_code = st.text_input("Administrator Code", type="password", key="reg_admin_code")
+                    
+                    # Submit button
+                    submit_button = st.form_submit_button("Register")
+                    
+                    if submit_button:
+                        # Validate inputs
+                        if not full_name or not username or not email or not password:
+                            st.error("Please fill in all required fields")
+                        elif password != confirm_password:
+                            st.error("Passwords do not match")
+                        elif role == "department_head" and admin_code != "admin2025":  # Simple admin code for demo
+                            st.error("Invalid administrator code for department head registration")
+                        else:
+                            # Register the user
+                            success, message, user_id = register_user(
+                                username=username,
+                                password=password,
+                                full_name=full_name,
+                                email=email,
+                                role=role,
+                                department=department
+                            )
+                            
+                            if success:
+                                st.success(f"Registration successful! You can now log in as {username}")
+                            else:
+                                st.error(f"Registration failed: {message}")
+                
+                st.info("Administrator accounts can only be created by existing administrators through the admin panel.")
         else:
             st.success(f"Logged in as: {st.session_state.username}")
             st.write(f"Role: {st.session_state.user_role}")

@@ -338,6 +338,66 @@ def authenticate_user_db(username, password):
     db.close()
     return False, None, None
 
+def register_user_db(username, password, full_name, email, role, department):
+    """
+    Register a new user in the database.
+    
+    Parameters:
+    - username: Unique username for the new user
+    - password: Password for the new user (will be hashed)
+    - full_name: Full name of the user
+    - email: Email address of the user
+    - role: User role (administrator, department_head, staff)
+    - department: Department name the user belongs to
+    
+    Returns:
+    - Tuple of (success, message, user_id)
+      - success: Boolean indicating if registration was successful
+      - message: Message describing the result
+      - user_id: UUID of the new user if successful, None otherwise
+    """
+    db = get_db_session()
+    
+    # Check if username already exists
+    existing_user = db.query(User).filter(User.username == username).first()
+    if existing_user:
+        db.close()
+        return False, "Username already exists", None
+    
+    # Check if email already exists
+    existing_email = db.query(User).filter(User.email == email).first()
+    if existing_email:
+        db.close()
+        return False, "Email already exists", None
+    
+    # Hash the password
+    hashed_password = hash_password(password)
+    
+    # Create new user
+    new_user = User(
+        username=username,
+        password=hashed_password,
+        full_name=full_name,
+        email=email,
+        role=role,
+        department=department
+    )
+    
+    try:
+        db.add(new_user)
+        db.commit()
+        
+        # Log the registration
+        log_activity_db(username, "registration", "successful", f"Registered as {role} in {department}")
+        
+        user_id = new_user.id
+        db.close()
+        return True, "User registered successfully", user_id
+    except Exception as e:
+        db.rollback()
+        db.close()
+        return False, f"Registration failed: {str(e)}", None
+
 def get_user_by_username(username):
     db = get_db_session()
     user = db.query(User).filter(User.username == username).first()
@@ -361,11 +421,143 @@ def get_users_by_role(role):
             "username": user.username,
             "full_name": user.full_name,
             "department": user.department,
-            "email": user.email
+            "email": user.email,
+            "created_at": user.created_at.strftime("%Y-%m-%d") if user.created_at else "N/A"
         })
     
     db.close()
     return result
+
+def get_all_users():
+    """
+    Get all users in the system, sorted by role and department.
+    
+    Returns:
+    - List of user dictionaries
+    """
+    db = get_db_session()
+    users = db.query(User).order_by(User.role, User.department, User.username).all()
+    result = []
+    
+    for user in users:
+        result.append({
+            "id": user.id,
+            "username": user.username,
+            "full_name": user.full_name,
+            "role": user.role,
+            "department": user.department,
+            "email": user.email,
+            "created_at": user.created_at.strftime("%Y-%m-%d") if user.created_at else "N/A"
+        })
+    
+    db.close()
+    return result
+
+def update_user_db(user_id, data):
+    """
+    Update a user in the database.
+    
+    Parameters:
+    - user_id: UUID of user to update
+    - data: Dictionary containing fields to update, which can include:
+        - full_name: New full name
+        - email: New email
+        - role: New role
+        - department: New department
+        - password: New password (will be hashed)
+    
+    Returns:
+    - Tuple of (success, message)
+    """
+    db = get_db_session()
+    
+    # Try to find the user
+    user = db.query(User).filter(User.id == user_id).first()
+    
+    if not user:
+        db.close()
+        return False, "User not found"
+    
+    # Update fields if provided
+    if "full_name" in data:
+        user.full_name = data["full_name"]
+    
+    if "email" in data and data["email"] != user.email:
+        # Check if email is unique
+        existing_email = db.query(User).filter(User.email == data["email"], User.id != user_id).first()
+        if existing_email:
+            db.close()
+            return False, "Email already in use by another user"
+        user.email = data["email"]
+    
+    if "role" in data:
+        user.role = data["role"]
+    
+    if "department" in data:
+        user.department = data["department"]
+    
+    if "password" in data and data["password"]:
+        user.password = hash_password(data["password"])
+    
+    try:
+        user.updated_at = datetime.now()
+        db.commit()
+        db.close()
+        return True, "User updated successfully"
+    except Exception as e:
+        db.rollback()
+        db.close()
+        return False, f"Error updating user: {str(e)}"
+
+def delete_user_db(user_id, deleted_by_username):
+    """
+    Delete a user from the database.
+    
+    Parameters:
+    - user_id: UUID of user to delete
+    - deleted_by_username: Username of the admin performing the deletion
+    
+    Returns:
+    - Tuple of (success, message)
+    """
+    db = get_db_session()
+    
+    # Try to find the user
+    user = db.query(User).filter(User.id == user_id).first()
+    
+    if not user:
+        db.close()
+        return False, "User not found"
+    
+    # Don't allow deleting the last administrator
+    if user.role == "administrator":
+        admin_count = db.query(User).filter(User.role == "administrator").count()
+        if admin_count <= 1:
+            db.close()
+            return False, "Cannot delete the last administrator account"
+    
+    # Store username for logging
+    username = user.username
+    
+    try:
+        # Delete user
+        db.delete(user)
+        db.commit()
+        
+        # Log the deletion
+        log_activity_db(
+            deleted_by_username, 
+            f"deleted user {username}", 
+            "successful",
+            f"Deleted user with ID {user_id}"
+        )
+        
+        db.close()
+        return True, f"User {username} deleted successfully"
+    except Exception as e:
+        db.rollback()
+        db.close()
+        return False, f"Error deleting user: {str(e)}"
 
 def get_users_by_department(department):
     db = get_db_session()
