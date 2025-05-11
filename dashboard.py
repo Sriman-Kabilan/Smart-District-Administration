@@ -4,11 +4,13 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 import altair as alt
+import uuid
 from datetime import datetime, timedelta
 from utils.data_handler import get_department_data, get_performance_data, get_resource_data, get_task_data
 from utils.visualization import create_kpi_card, create_performance_chart, create_resource_chart
 from utils.kpi_calculations import calculate_performance_metrics
 from task_manager import initialize_task_data, display_task_creation_form, display_task_list, display_task_dashboard
+from db_service import get_all_users, update_user_db, delete_user_db, register_user_db
 
 # Admin Dashboard
 def display_admin_dashboard():
@@ -19,7 +21,7 @@ def display_admin_dashboard():
     st.write(f"Welcome, {st.session_state.username} (Administrator)")
     
     # Create tabs for different dashboard sections
-    dashboard_tabs = st.tabs(["Overview", "Department Performance", "Resource Allocation", "Task Management", "Activity Log"])
+    dashboard_tabs = st.tabs(["Overview", "Department Performance", "Resource Allocation", "Task Management", "User Management", "Activity Log"])
     
     # Overview Tab
     with dashboard_tabs[0]:
@@ -107,9 +109,239 @@ def display_admin_dashboard():
         
         # Display the task list interface
         display_task_list()
+    
+    # User Management Tab
+    with dashboard_tabs[4]:
+        st.subheader("User Management")
+        st.write("Manage users and their access levels in the system")
+        
+        # Create tabs for different user management functions
+        user_tabs = st.tabs(["All Users", "Create User", "Edit User", "Delete User"])
+        
+        # All Users Tab
+        with user_tabs[0]:
+            st.subheader("All System Users")
+            
+            # Get all users from the database
+            all_users = get_all_users()
+            
+            if all_users:
+                # Convert to DataFrame for better display
+                users_df = pd.DataFrame(all_users)
+                
+                # Select columns to display
+                display_columns = ["username", "full_name", "role", "department", "email", "created_at"]
+                
+                # Display users in a table
+                st.dataframe(users_df[display_columns], use_container_width=True)
+                
+                # Show user counts by role
+                role_counts = users_df['role'].value_counts().reset_index()
+                role_counts.columns = ['Role', 'Count']
+                
+                # Display counts
+                st.subheader("User Counts by Role")
+                col1, col2 = st.columns([2, 3])
+                
+                with col1:
+                    st.table(role_counts)
+                
+                with col2:
+                    fig = px.pie(role_counts, values='Count', names='Role', title="User Distribution by Role")
+                    st.plotly_chart(fig, use_container_width=True)
+            else:
+                st.info("No users found in the system.")
+        
+        # Create User Tab
+        with user_tabs[1]:
+            st.subheader("Create New User")
+            
+            with st.form("create_user_form"):
+                # Personal information
+                full_name = st.text_input("Full Name")
+                username = st.text_input("Username")
+                email = st.text_input("Email")
+                
+                # Role and department
+                role = st.selectbox(
+                    "Role", 
+                    ["administrator", "department_head", "staff"]
+                )
+                
+                department = st.selectbox(
+                    "Department",
+                    ["Administration", "Public Works", "Health Services", "Education", "Transportation", "Security"]
+                )
+                
+                # Password
+                password = st.text_input("Password", type="password")
+                confirm_password = st.text_input("Confirm Password", type="password")
+                
+                # Submit button
+                submit_button = st.form_submit_button("Create User")
+                
+                if submit_button:
+                    # Validate inputs
+                    if not full_name or not username or not email or not password:
+                        st.error("Please fill in all required fields")
+                    elif password != confirm_password:
+                        st.error("Passwords do not match")
+                    else:
+                        # Register the user
+                        success, message, user_id = register_user_db(
+                            username=username,
+                            password=password,
+                            full_name=full_name,
+                            email=email,
+                            role=role,
+                            department=department
+                        )
+                        
+                        if success:
+                            st.success(f"User {username} created successfully!")
+                        else:
+                            st.error(f"Failed to create user: {message}")
+        
+        # Edit User Tab
+        with user_tabs[2]:
+            st.subheader("Edit Existing User")
+            
+            # Get all users
+            all_users = get_all_users()
+            
+            if all_users:
+                # Create a dictionary of users for the selectbox
+                user_options = {f"{user['username']} ({user['full_name']})": user for user in all_users}
+                
+                # Select user to edit
+                selected_user_display = st.selectbox(
+                    "Select User to Edit",
+                    options=list(user_options.keys())
+                )
+                
+                if selected_user_display:
+                    selected_user = user_options[selected_user_display]
+                    
+                    with st.form("edit_user_form"):
+                        # Display current values and allow editing
+                        user_id = selected_user["id"]
+                        st.text_input("Username", value=selected_user["username"], disabled=True)
+                        full_name = st.text_input("Full Name", value=selected_user["full_name"])
+                        email = st.text_input("Email", value=selected_user["email"])
+                        
+                        # Role and department
+                        role_options = ["administrator", "department_head", "staff"]
+                        current_role_index = role_options.index(selected_user["role"]) if selected_user["role"] in role_options else 0
+                        
+                        role = st.selectbox(
+                            "Role", 
+                            options=role_options,
+                            index=current_role_index
+                        )
+                        
+                        department_options = ["Administration", "Public Works", "Health Services", "Education", "Transportation", "Security"]
+                        current_dept_index = department_options.index(selected_user["department"]) if selected_user["department"] in department_options else 0
+                        
+                        department = st.selectbox(
+                            "Department",
+                            options=department_options,
+                            index=current_dept_index
+                        )
+                        
+                        # New password (optional)
+                        st.markdown("**Leave password fields empty to keep current password**")
+                        password = st.text_input("New Password (optional)", type="password")
+                        confirm_password = st.text_input("Confirm New Password", type="password")
+                        
+                        # Submit button
+                        submit_button = st.form_submit_button("Update User")
+                        
+                        if submit_button:
+                            # Validate inputs
+                            if not full_name or not email:
+                                st.error("Full name and email are required")
+                            elif password and password != confirm_password:
+                                st.error("Passwords do not match")
+                            else:
+                                # Prepare update data
+                                update_data = {
+                                    "full_name": full_name,
+                                    "email": email,
+                                    "role": role,
+                                    "department": department
+                                }
+                                
+                                # Add password if provided
+                                if password:
+                                    update_data["password"] = password
+                                
+                                # Update the user
+                                success, message = update_user_db(user_id, update_data)
+                                
+                                if success:
+                                    st.success(f"User updated successfully!")
+                                else:
+                                    st.error(f"Failed to update user: {message}")
+            else:
+                st.info("No users found in the system.")
+        
+        # Delete User Tab
+        with user_tabs[3]:
+            st.subheader("Delete User")
+            st.warning("⚠️ Warning: Deleting a user is permanent and cannot be undone.")
+            
+            # Get all users
+            all_users = get_all_users()
+            
+            if all_users:
+                # Create a dictionary of users for the selectbox, excluding current user
+                current_username = st.session_state.username
+                user_options = {
+                    f"{user['username']} ({user['full_name']})": user 
+                    for user in all_users 
+                    if user['username'] != current_username
+                }
+                
+                if not user_options:
+                    st.info("No other users available to delete.")
+                else:
+                    # Select user to delete
+                    selected_user_display = st.selectbox(
+                        "Select User to Delete",
+                        options=list(user_options.keys())
+                    )
+                    
+                    if selected_user_display:
+                        selected_user = user_options[selected_user_display]
+                        
+                        # Display user details
+                        st.write(f"**Username:** {selected_user['username']}")
+                        st.write(f"**Full Name:** {selected_user['full_name']}")
+                        st.write(f"**Role:** {selected_user['role']}")
+                        st.write(f"**Department:** {selected_user['department']}")
+                        st.write(f"**Email:** {selected_user['email']}")
+                        
+                        # Confirmation
+                        confirmation = st.text_input(
+                            "Type the username to confirm deletion", 
+                            placeholder=f"Type '{selected_user['username']}' to confirm"
+                        )
+                        
+                        if st.button("Delete User"):
+                            if confirmation == selected_user['username']:
+                                success, message = delete_user_db(selected_user['id'], current_username)
+                                
+                                if success:
+                                    st.success(message)
+                                else:
+                                    st.error(message)
+                            else:
+                                st.error("Username confirmation doesn't match. Deletion cancelled.")
+            else:
+                st.info("No users found in the system.")
         
     # Activity Log Tab
-    with dashboard_tabs[4]:
+    with dashboard_tabs[5]:
         # Recent activity section
         st.subheader("Recent System Activity")
         
