@@ -1,0 +1,25 @@
+[project]
+name = "repl-nix-workspace"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.11"
+dependencies = [
+    "altair>=5.5.0",
+    "bcrypt>=4.3.0",
+    "fastapi>=0.115.13",
+    "numpy>=2.2.5",
+    "openai>=1.78.0",
+    "pandas>=2.2.3",
+    "passlib>=1.7.4",
+    "plotly>=6.0.1",
+    "psycopg2-binary>=2.9.10",
+    "pydantic>=2.11.4",
+    "pyjwt>=2.10.1",
+    "python-jose>=3.5.0",
+    "python-multipart>=0.0.20",
+    "scikit-learn>=1.6.1",
+    "sqlalchemy>=2.0.40",
+    "statsmodels>=0.14.4",
+    "streamlit>=1.45.0",
+    "uvicorn>=0.34.3",
+]
