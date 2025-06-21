@@ -1,8 +1,8 @@
-modules = ["python-3.11"]
+modules = ["python-3.11", "nodejs-20", "python3"]
 
 [nix]
 channel = "stable-24_05"
-packages = ["glibcLocales"]
+packages = ["cargo", "glibcLocales", "libiconv", "rustc"]
 
 [deployment]
 deploymentTarget = "autoscale"
@@ -18,17 +18,38 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Streamlit Dashboard"
+args = "Backend API"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "React Frontend"
 
 [[workflows.workflow]]
-name = "Streamlit Dashboard"
+name = "Backend API"
 author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "streamlit run app.py --server.port 5000"
+args = "uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload"
+waitForPort = 8000
+
+[[workflows.workflow]]
+name = "React Frontend"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "PORT=5000 npm start"
 waitForPort = 5000
+
+[[ports]]
+localPort = 3000
+externalPort = 3000
 
 [[ports]]
 localPort = 5000
 externalPort = 80
+
+[[ports]]
+localPort = 8000
+externalPort = 8000
