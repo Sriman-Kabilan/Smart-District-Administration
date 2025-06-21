@@ -13,20 +13,46 @@ const Login = () => {
     setLoading(true);
     try {
       await login(values.username, values.password);
-      message.success('Login successful!');
+      message.success('Welcome to District Administration Dashboard!');
       navigate('/dashboard');
     } catch (error) {
-      message.error('Invalid username or password');
+      console.error('Login error:', error);
+      if (error.response?.status === 401) {
+        message.error('Invalid username or password');
+      } else if (error.response?.status >= 500) {
+        message.error('Server error. Please try again later.');
+      } else if (error.code === 'NETWORK_ERROR') {
+        message.error('Unable to connect to server. Please check your connection.');
+      } else {
+        message.error('Login failed. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="login-container">
+    <div style={{
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      padding: '20px'
+    }}>
       <Card 
         title="District Administration Login" 
-        className="login-card"
+        style={{
+          width: '400px',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
+          borderRadius: '12px'
+        }}
+        headStyle={{
+          textAlign: 'center',
+          fontSize: '20px',
+          fontWeight: 'bold',
+          borderBottom: '1px solid #f0f0f0'
+        }}
       >
         <Form
           name="login"
@@ -68,9 +94,19 @@ const Login = () => {
           </Form.Item>
         </Form>
         
-        <div style={{ textAlign: 'center', marginTop: 16, color: '#666', fontSize: '12px' }}>
-          <p>Demo Credentials:</p>
-          <p>Username: admin | Password: admin123</p>
+        <div style={{ marginTop: 24, padding: 16, backgroundColor: '#f8f9fa', borderRadius: 8 }}>
+          <h4 style={{ margin: 0, marginBottom: 12, color: '#495057', fontSize: '14px' }}>Demo Credentials:</h4>
+          <div style={{ fontSize: '12px', color: '#6c757d' }}>
+            <div style={{ marginBottom: 8 }}>
+              <strong>Administrator:</strong> admin / admin123
+            </div>
+            <div style={{ marginBottom: 8 }}>
+              <strong>Department Head:</strong> dept_head / dept123
+            </div>
+            <div>
+              <strong>Staff Member:</strong> staff / staff123
+            </div>
+          </div>
         </div>
       </Card>
     </div>
