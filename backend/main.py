@@ -13,8 +13,13 @@ app = FastAPI(title="District Administration API", version="1.0.0")
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,
+    allow_origins=[
+        "http://localhost:3000",  # React default port for local development
+        "http://localhost:5000",  # Replit/custom port
+        "https://*.replit.dev",   # Replit domains
+        "*"  # Allow all origins as fallback
+    ],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
