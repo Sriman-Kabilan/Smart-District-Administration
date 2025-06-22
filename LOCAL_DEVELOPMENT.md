@@ -5,15 +5,29 @@
 - Python 3.8 or higher
 - PostgreSQL database
 
-## Environment Setup
+## Quick Setup
+
+### Windows Users
+Run one of these automated setup scripts:
+```powershell
+# PowerShell (recommended)
+.\setup-local.ps1
+
+# Or Command Prompt
+setup-local.bat
+```
+
+### Linux/Mac Users
+```bash
+./setup-local.sh
+```
+
+## Manual Setup
 
 ### 1. Backend Setup
 ```bash
 # Install Python dependencies
-pip install -r requirements.txt
-
-# Or if using pyproject.toml
-pip install .
+pip install fastapi uvicorn sqlalchemy psycopg2-binary pydantic python-jose passlib python-multipart pandas numpy scikit-learn plotly altair
 
 # Set up environment variables
 export DATABASE_URL="postgresql://username:password@localhost:5432/district_admin"

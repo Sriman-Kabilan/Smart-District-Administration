@@ -17,12 +17,24 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => {
     const token = localStorage.getItem('token');
+    console.log('AuthContext: Checking token', token ? 'exists' : 'not found');
+    
     if (token) {
       authService.getCurrentUser()
-        .then(setUser)
-        .catch(() => localStorage.removeItem('token'))
-        .finally(() => setLoading(false));
+        .then((userData) => {
+          console.log('AuthContext: User data received', userData);
+          setUser(userData);
+        })
+        .catch((error) => {
+          console.log('AuthContext: Failed to get user', error);
+          localStorage.removeItem('token');
+        })
+        .finally(() => {
+          console.log('AuthContext: Loading complete');
+          setLoading(false);
+        });
     } else {
+      console.log('AuthContext: No token, setting loading to false');
       setLoading(false);
     }
   }, []);
