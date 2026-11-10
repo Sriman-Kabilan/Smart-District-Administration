@@ -2,11 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { 
   Card, Button, Table, Tag, Space, Alert, Modal, Form, 
   Input, Select, DatePicker, Row, Col, Statistic, Popconfirm, 
-  message, Dropdown, Menu 
+  message, Dropdown, Drawer, Descriptions, Divider 
 } from 'antd';
 import { 
   PlusOutlined, EditOutlined, DeleteOutlined, CheckCircleOutlined, 
-  ClockCircleOutlined, AlertOutlined, DownOutlined, FilterOutlined 
+  ClockCircleOutlined, AlertOutlined, DownOutlined, FilterOutlined,
+  FileTextOutlined, EyeOutlined, UserOutlined, BankOutlined 
 } from '@ant-design/icons';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
@@ -19,56 +20,66 @@ const initialDistrictTasks = [
     id: '1',
     task_id: 'T-001',
     task_name: 'Road Maintenance Survey & Pothole Tagging',
-    description: 'Conduct comprehensive survey of arterial roads in Ward 2',
+    description: 'Conduct comprehensive survey of arterial roads in Ward 2. Document surface degradation, measure asphalt depth loss, and tag GPS coordinates of high-risk potholes ahead of monsoon rain forecast.',
     priority: 'High',
     status: 'In Progress',
     assigned_to: 'staff',
     due_date: '2026-11-20',
     department: 'Public Works',
+    location: 'Ward 2 - Riverside Basin Road (KM 4 - 12)',
+    notes: 'Coordinate with traffic police for partial lane closure during 10:00 PM to 04:00 AM survey window.'
   },
   {
     id: '2',
     task_id: 'T-002',
     task_name: 'Quarterly Municipal Budget Reconciliation',
-    description: 'Prepare expenditure reconciliation for Q3 audit',
+    description: 'Prepare expenditure reconciliation for Q3 audit. Audit heavy fleet diesel consumption vouchers, overtime payroll authorizations, and capital equipment procurement ledgers.',
     priority: 'Medium',
     status: 'Pending',
     assigned_to: 'dept_head',
     due_date: '2026-11-25',
     department: 'Revenue & Finance',
+    location: 'District Civic Center, Finance Wing',
+    notes: 'Draft preliminary statement before the standing treasury audit on Nov 22.'
   },
   {
     id: '3',
     task_id: 'T-003',
     task_name: 'Primary School Drinking Water Testing',
-    description: 'Sample testing across 12 civic schools',
+    description: 'Sample testing across 12 civic schools. Perform microbial culture and residual chlorine titration. Replace cartridge filters in schools failing potable water standards.',
     priority: 'Critical',
     status: 'Completed',
     assigned_to: 'staff',
     due_date: '2026-11-10',
     department: 'Health & Sanitation',
+    location: 'Wards 1, 3, and 5 Public Primary Schools',
+    notes: 'All 12 school water plants cleared WHO safety guidelines. Report filed with Education Officer.'
   },
   {
     id: '4',
     task_id: 'T-004',
     task_name: 'Traffic Signal Sensor Synchronization',
-    description: 'Deploy firmware update to automated signal controllers',
+    description: 'Deploy firmware update to automated signal controllers along Ring Road Corridor to implement intelligent green-wave timing for morning peak transit buses.',
     priority: 'High',
     status: 'In Progress',
     assigned_to: 'staff',
     due_date: '2026-11-18',
     department: 'Transportation',
+    location: 'Ring Road Junctions 3, 5, and 8',
+    notes: 'Requires coordination with IT network team for fiber optic gateway handshake.'
   },
   {
     id: '5',
     task_id: 'T-005',
     task_name: 'Solar Panel Maintenance at Civic Center Block B',
-    description: 'Routine inverter diagnostic and panel cleaning',
+    description: 'Routine inverter diagnostic, high-pressure dust cleaning, and battery telemetry calibration on 150kW rooftop photovoltaic array.',
     priority: 'Low',
     status: 'Pending',
     assigned_to: 'staff',
     due_date: '2026-11-30',
     department: 'Public Works',
+    location: 'District Civic Center Rooftop',
+    notes: 'Safety harnesses and roof anchor line inspection required before crew ascent.'
   }
 ];
 
@@ -79,8 +90,10 @@ const TaskTracking = () => {
   const [selectedDept, setSelectedDept] = useState('All');
   const [selectedStatus, setSelectedStatus] = useState('All');
   
+  // Modals & Drawer State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
+  const [detailDrawerTask, setDetailDrawerTask] = useState(null);
   const [form] = Form.useForm();
 
   const fetchTasks = async () => {
@@ -91,7 +104,7 @@ const TaskTracking = () => {
         setTasks(res.data);
       }
     } catch (err) {
-      // Fallback to local state if backend is booting
+      // Fallback to local state
       console.log('Using local task dataset');
     } finally {
       setLoading(false);
@@ -116,7 +129,9 @@ const TaskTracking = () => {
         priority: values.priority,
         assigned_to: values.assigned_to,
         due_date: formattedDueDate,
-        description: values.description
+        description: values.description,
+        location: values.location,
+        notes: values.notes
       } : t);
       setTasks(updated);
       message.success(`Task ${editingTask.task_id} updated.`);
@@ -133,6 +148,8 @@ const TaskTracking = () => {
         assigned_to: values.assigned_to || user?.username || 'staff',
         due_date: formattedDueDate,
         department: values.department,
+        location: values.location || 'District Jurisdiction',
+        notes: values.notes || ''
       };
 
       try {
@@ -151,6 +168,9 @@ const TaskTracking = () => {
 
   const handleStatusChange = async (taskId, newStatus) => {
     setTasks(tasks.map(t => t.task_id === taskId || t.id === taskId ? { ...t, status: newStatus } : t));
+    if (detailDrawerTask && (detailDrawerTask.task_id === taskId || detailDrawerTask.id === taskId)) {
+      setDetailDrawerTask({ ...detailDrawerTask, status: newStatus });
+    }
     try {
       await api.patch(`/tasks/${taskId}/status`, { status: newStatus });
     } catch (e) {
@@ -161,6 +181,9 @@ const TaskTracking = () => {
 
   const handleDeleteTask = async (taskId) => {
     setTasks(tasks.filter(t => t.task_id !== taskId && t.id !== taskId));
+    if (detailDrawerTask && (detailDrawerTask.task_id === taskId || detailDrawerTask.id === taskId)) {
+      setDetailDrawerTask(null);
+    }
     try {
       await api.delete(`/tasks/${taskId}`);
     } catch (e) {
@@ -176,7 +199,9 @@ const TaskTracking = () => {
       department: record.department,
       priority: record.priority,
       assigned_to: record.assigned_to,
-      description: record.description
+      description: record.description,
+      location: record.location,
+      notes: record.notes
     });
     setIsModalOpen(true);
   };
@@ -215,16 +240,25 @@ const TaskTracking = () => {
       title: 'Task ID',
       dataIndex: 'task_id',
       key: 'task_id',
+      width: 90,
       render: id => <Tag color="geekblue">{id}</Tag>
     },
     {
       title: 'Task Deliverable',
       dataIndex: 'task_name',
       key: 'task_name',
-      render: (name, r) => (
+      render: (name, record) => (
         <div>
-          <strong>{name}</strong>
-          {r.description && <div style={{ fontSize: 12, color: '#8c8c8c' }}>{r.description}</div>}
+          <a 
+            style={{ fontWeight: 600, color: '#1890ff', cursor: 'pointer' }}
+            onClick={() => setDetailDrawerTask(record)}
+          >
+            {name}
+          </a>
+          <div style={{ fontSize: 12, color: '#8c8c8c', marginTop: 2 }}>
+            <FileTextOutlined style={{ marginRight: 4 }} />
+            {record.description ? `${record.description.substring(0, 65)}...` : 'Click to view description box'}
+          </div>
         </div>
       )
     },
@@ -235,10 +269,10 @@ const TaskTracking = () => {
       render: d => <Tag color="blue">{d}</Tag>
     },
     {
-      title: 'Assigned To',
+      title: 'Assigned Officer',
       dataIndex: 'assigned_to',
       key: 'assigned_to',
-      render: a => <Tag color="purple">{a}</Tag>
+      render: a => <Tag color="purple"><UserOutlined style={{ marginRight: 4 }} />{a}</Tag>
     },
     {
       title: 'Priority',
@@ -286,6 +320,12 @@ const TaskTracking = () => {
         <Space>
           <Button
             type="text"
+            icon={<EyeOutlined />}
+            title="Inspect Description Box"
+            onClick={() => setDetailDrawerTask(record)}
+          />
+          <Button
+            type="text"
             icon={<EditOutlined />}
             onClick={() => openEditModal(record)}
           />
@@ -310,7 +350,7 @@ const TaskTracking = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h1 style={{ margin: 0, fontSize: 24 }}>District Task Tracking & Workflow Dispatch</h1>
-          <span style={{ color: '#8c8c8c' }}>Assign, monitor, and resolve civic action deliverables across all administrative units</span>
+          <span style={{ color: '#8c8c8c' }}>Assign, inspect description boxes, and resolve civic action deliverables</span>
         </div>
         <Space wrap>
           <Select value={selectedDept} onChange={setSelectedDept} style={{ width: 180 }}>
@@ -394,9 +434,39 @@ const TaskTracking = () => {
           rowKey={r => r.task_id || r.id}
           pagination={{ pageSize: 8 }}
           size="middle"
+          expandable={{
+            expandedRowRender: record => (
+              <div style={{ 
+                background: '#fafafa', 
+                padding: '16px 20px', 
+                borderRadius: '6px', 
+                borderLeft: '4px solid #1890ff' 
+              }}>
+                <div style={{ marginBottom: 8, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <FileTextOutlined style={{ color: '#1890ff' }} />
+                  <strong>Task Scope & Full Description Box:</strong>
+                </div>
+                <p style={{ margin: 0, fontSize: 13, lineHeight: '1.6', color: '#262626' }}>
+                  {record.description || 'No detailed description specified.'}
+                </p>
+                {record.location && (
+                  <div style={{ marginTop: 8, fontSize: 12, color: '#595959' }}>
+                    <strong>📍 Location Coordinates:</strong> {record.location}
+                  </div>
+                )}
+                {record.notes && (
+                  <div style={{ marginTop: 4, fontSize: 12, color: '#d48806' }}>
+                    <strong>⚠️ Field Directive / Notes:</strong> {record.notes}
+                  </div>
+                )}
+              </div>
+            ),
+            rowExpandable: record => !!record.description || !!record.notes
+          }}
         />
       </Card>
 
+      {/* Task Creation & Edit Modal */}
       <Modal
         title={editingTask ? `Edit Task ${editingTask.task_id}` : 'Create New Administrative Task'}
         open={isModalOpen}
@@ -405,12 +475,13 @@ const TaskTracking = () => {
           setEditingTask(null);
         }}
         footer={null}
-        width={600}
+        width={650}
       >
         <Form form={form} layout="vertical" onFinish={handleCreateOrUpdateTask}>
           <Form.Item name="task_name" label="Task Title / Deliverable" rules={[{ required: true, message: 'Please input task title' }]}>
             <Input placeholder="e.g. Inspect storm drain outflow at Ward 3" />
           </Form.Item>
+          
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item name="department" label="Responsible Department" initialValue="Public Works" rules={[{ required: true }]}>
@@ -434,6 +505,7 @@ const TaskTracking = () => {
               </Form.Item>
             </Col>
           </Row>
+
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item name="assigned_to" label="Assignee (Officer Handle)" initialValue="staff">
@@ -446,9 +518,29 @@ const TaskTracking = () => {
               </Form.Item>
             </Col>
           </Row>
-          <Form.Item name="description" label="Detailed Work Description">
-            <TextArea rows={3} placeholder="Provide instructions, location coordinates, or requirements..." />
+
+          <Form.Item name="location" label="Location / Target Ward">
+            <Input placeholder="e.g. Ward 2 Riverside Basin (KM 4 - 12)" />
           </Form.Item>
+
+          {/* Dedicated Description Box Form Field */}
+          <Form.Item 
+            name="description" 
+            label="Task Description Box (Detailed Scope & Directives)" 
+            rules={[{ required: true, message: 'Please provide task description' }]}
+          >
+            <TextArea 
+              rows={4} 
+              showCount 
+              maxLength={600}
+              placeholder="Enter detailed work instructions, safety requirements, contractor specs, or equipment needed..." 
+            />
+          </Form.Item>
+
+          <Form.Item name="notes" label="Special Field Notes & Contingencies">
+            <Input placeholder="e.g. Requires safety line inspection or police traffic escort" />
+          </Form.Item>
+
           <div style={{ textAlign: 'right', marginTop: 16 }}>
             <Space>
               <Button onClick={() => {
@@ -462,6 +554,100 @@ const TaskTracking = () => {
           </div>
         </Form>
       </Modal>
+
+      {/* Task Description & Detail Drawer */}
+      <Drawer
+        title={<span><FileTextOutlined style={{ color: '#1890ff', marginRight: 8 }} />Task Description Box & Telemetry</span>}
+        placement="right"
+        width={520}
+        open={!!detailDrawerTask}
+        onClose={() => setDetailDrawerTask(null)}
+        extra={
+          detailDrawerTask && (
+            <Space>
+              <Button 
+                size="small" 
+                type="primary"
+                onClick={() => {
+                  const t = detailDrawerTask;
+                  setDetailDrawerTask(null);
+                  openEditModal(t);
+                }}
+              >
+                Edit
+              </Button>
+            </Space>
+          )
+        }
+      >
+        {detailDrawerTask && (
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <Tag color="geekblue" style={{ fontSize: 14, padding: '2px 8px' }}>{detailDrawerTask.task_id}</Tag>
+              <Tag color={getPriorityColor(detailDrawerTask.priority)}>{detailDrawerTask.priority} Priority</Tag>
+            </div>
+
+            <h3 style={{ margin: '0 0 12px 0' }}>{detailDrawerTask.task_name}</h3>
+
+            <Descriptions column={1} size="small" bordered style={{ marginBottom: 20 }}>
+              <Descriptions.Item label="Department">
+                <Tag color="blue">{detailDrawerTask.department}</Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="Assignee">
+                <Tag color="purple"><UserOutlined style={{ marginRight: 4 }} />{detailDrawerTask.assigned_to}</Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="Status">
+                <Tag color={getStatusColor(detailDrawerTask.status)}>{detailDrawerTask.status}</Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label="Due Date">
+                {detailDrawerTask.due_date}
+              </Descriptions.Item>
+              {detailDrawerTask.location && (
+                <Descriptions.Item label="Location">
+                  {detailDrawerTask.location}
+                </Descriptions.Item>
+              )}
+            </Descriptions>
+
+            <Divider orientation="left">Detailed Description Box</Divider>
+            <div style={{ 
+              background: '#f9f9f9', 
+              padding: '16px', 
+              borderRadius: '8px', 
+              border: '1px solid #e8e8e8',
+              lineHeight: 1.6,
+              fontSize: 14,
+              whiteSpace: 'pre-wrap'
+            }}>
+              {detailDrawerTask.description || 'No detailed description available for this deliverable.'}
+            </div>
+
+            {detailDrawerTask.notes && (
+              <>
+                <Divider orientation="left">Field Notes & Warnings</Divider>
+                <Alert
+                  message={detailDrawerTask.notes}
+                  type="warning"
+                  showIcon
+                />
+              </>
+            )}
+
+            <div style={{ marginTop: 24, textAlign: 'center' }}>
+              <Button 
+                block 
+                type={detailDrawerTask.status === 'Completed' ? 'default' : 'primary'}
+                onClick={() => handleStatusChange(
+                  detailDrawerTask.task_id || detailDrawerTask.id, 
+                  detailDrawerTask.status === 'Completed' ? 'In Progress' : 'Completed'
+                )}
+              >
+                {detailDrawerTask.status === 'Completed' ? 'Re-open Task' : 'Mark Task as Completed'}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Drawer>
     </div>
   );
 };
