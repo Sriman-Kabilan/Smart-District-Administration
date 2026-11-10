@@ -5,6 +5,13 @@ import { AuthProvider } from './contexts/AuthContext';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import TaskTracking from './pages/TaskTracking';
+import PerformanceMetrics from './pages/PerformanceMetrics';
+import ResourceManagement from './pages/ResourceManagement';
+import DepartmentCoordination from './pages/DepartmentCoordination';
+import GeospatialView from './pages/GeospatialView';
+import Reports from './pages/Reports';
+import PredictiveAnalytics from './pages/PredictiveAnalytics';
+import Profile from './pages/Profile';
 import ProtectedRoute from './components/Auth/ProtectedRoute';
 import Layout from './components/Layout/Layout';
 import ErrorBoundary from './components/Common/ErrorBoundary';
@@ -37,12 +44,13 @@ const App = () => {
                           <Route path="/" element={<Navigate to="/dashboard" replace />} />
                           <Route path="/dashboard" element={<Dashboard />} />
                           <Route path="/tasks" element={<TaskTracking />} />
-                          <Route path="/performance" element={<div style={{padding: '20px'}}><h1>Performance Metrics</h1><p>Performance analytics will be implemented here</p></div>} />
-                          <Route path="/resources" element={<div style={{padding: '20px'}}><h1>Resource Management</h1><p>Resource allocation tools will be implemented here</p></div>} />
-                          <Route path="/coordination" element={<div style={{padding: '20px'}}><h1>Department Coordination</h1><p>Inter-department collaboration tools will be implemented here</p></div>} />
-                          <Route path="/geospatial" element={<div style={{padding: '20px'}}><h1>Geospatial View</h1><p>Interactive maps will be implemented here</p></div>} />
-                          <Route path="/reports" element={<div style={{padding: '20px'}}><h1>Reports</h1><p>Report generation will be implemented here</p></div>} />
-                          <Route path="/analytics" element={<div style={{padding: '20px'}}><h1>AI Analytics</h1><p>Predictive analytics will be implemented here</p></div>} />
+                          <Route path="/performance" element={<PerformanceMetrics />} />
+                          <Route path="/resources" element={<ResourceManagement />} />
+                          <Route path="/coordination" element={<DepartmentCoordination />} />
+                          <Route path="/geospatial" element={<GeospatialView />} />
+                          <Route path="/reports" element={<Reports />} />
+                          <Route path="/analytics" element={<PredictiveAnalytics />} />
+                          <Route path="/profile" element={<Profile />} />
                         </Routes>
                       </Layout>
                     </ProtectedRoute>

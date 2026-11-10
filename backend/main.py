@@ -15,8 +15,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",  # React default port for local development
-        "http://localhost:5000",  # Replit/custom port
-        "https://*.replit.dev",   # Replit domains
+        "http://localhost:5000",  # Custom frontend port
         "*"  # Allow all origins as fallback
     ],
     allow_credentials=True,
@@ -49,6 +48,17 @@ class LoginResponse(BaseModel):
     token_type: str
     user: UserResponse
 
+class TaskCreate(BaseModel):
+    task_name: str
+    description: Optional[str] = ""
+    priority: str = "Medium"
+    department: str
+    assigned_to: str
+    due_date: str
+
+class TaskStatusUpdate(BaseModel):
+    status: str
+
 # Mock database
 MOCK_USERS = {
     "admin": {
@@ -79,6 +89,53 @@ MOCK_USERS = {
         "department": "Public Works"
     }
 }
+
+MOCK_TASKS = [
+    {
+        "id": "1",
+        "task_id": "T-001",
+        "task_name": "Road Maintenance & Pothole Survey",
+        "description": "Conduct comprehensive survey of arterial roads in Ward 2",
+        "priority": "High",
+        "status": "In Progress",
+        "assigned_to": "staff",
+        "due_date": "2026-11-20",
+        "department": "Public Works"
+    },
+    {
+        "id": "2",
+        "task_id": "T-002",
+        "task_name": "Quarterly Municipal Budget Analysis",
+        "description": "Prepare expenditure reconciliation for Q3 audit",
+        "priority": "Medium",
+        "status": "Pending",
+        "assigned_to": "dept_head",
+        "due_date": "2026-11-25",
+        "department": "Revenue & Finance"
+    },
+    {
+        "id": "3",
+        "task_id": "T-003",
+        "task_name": "Primary School Water Quality Inspection",
+        "description": "Sample testing across 12 civic schools",
+        "priority": "Critical",
+        "status": "Completed",
+        "assigned_to": "staff",
+        "due_date": "2026-11-10",
+        "department": "Health & Sanitation"
+    },
+    {
+        "id": "4",
+        "task_id": "T-004",
+        "task_name": "Traffic Signal Synchronization on Ring Road",
+        "description": "Deploy firmware update to automated signal controllers",
+        "priority": "High",
+        "status": "In Progress",
+        "assigned_to": "staff",
+        "due_date": "2026-11-18",
+        "department": "Transportation"
+    }
+]
 
 def verify_password(password: str, hashed: str) -> bool:
     return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
@@ -142,6 +199,32 @@ async def get_current_user_info(current_user: dict = Depends(get_current_user)):
         email=current_user["email"],
         role=current_user["role"],
         department=current_user["department"]
+    )
+
+class UserUpdateRequest(BaseModel):
+    full_name: Optional[str] = None
+    email: Optional[str] = None
+    department: Optional[str] = None
+
+@app.put("/auth/me", response_model=UserResponse)
+async def update_current_user_info(update_data: UserUpdateRequest, current_user: dict = Depends(get_current_user)):
+    username = current_user["username"]
+    user = MOCK_USERS.get(username)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if update_data.full_name is not None:
+        user["full_name"] = update_data.full_name
+    if update_data.email is not None:
+        user["email"] = update_data.email
+    if update_data.department is not None:
+        user["department"] = update_data.department
+    return UserResponse(
+        id=user["id"],
+        username=user["username"],
+        full_name=user["full_name"],
+        email=user["email"],
+        role=user["role"],
+        department=user["department"]
     )
 
 @app.get("/dashboard/overview")

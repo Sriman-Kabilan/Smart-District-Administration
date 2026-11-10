@@ -65,6 +65,11 @@ const Layout = ({ children }) => {
       icon: <RobotOutlined />,
       label: 'AI Analytics',
     },
+    {
+      key: '/profile',
+      icon: <UserOutlined />,
+      label: 'Officer Profile',
+    },
   ];
 
   const handleMenuClick = ({ key }) => {
@@ -82,6 +87,7 @@ const Layout = ({ children }) => {
         key: 'profile',
         icon: <UserOutlined />,
         label: 'Profile',
+        onClick: () => navigate('/profile'),
       },
       {
         type: 'divider',

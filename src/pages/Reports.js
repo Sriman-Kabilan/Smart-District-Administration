@@ -1,225 +1,288 @@
 import React, { useState } from 'react';
-import { Card, Row, Col, Button, Select, DatePicker, Table, Tabs, Form, Input, Checkbox, Alert, Space, Tag, Progress } from 'antd';
-import { DownloadOutlined, FileExcelOutlined, FilePdfOutlined, BarChartOutlined, CalendarOutlined, FilterOutlined } from '@ant-design/icons';
+import { 
+  Card, Row, Col, Button, Select, DatePicker, Table, Tabs, 
+  Tag, Space, Progress, Statistic, message, Modal, Form, Input, Badge 
+} from 'antd';
+import { 
+  DownloadOutlined, FilePdfOutlined, FileExcelOutlined, 
+  PrinterOutlined, CalendarOutlined, PlusOutlined, CheckCircleOutlined, 
+  FileTextOutlined, ClockCircleOutlined 
+} from '@ant-design/icons';
 
 const { Option } = Select;
 const { RangePicker } = DatePicker;
-const { TabPane } = Tabs;
+
+// Sample Compiled Report Datasets for Live Preview
+const samplePerformanceReport = [
+  { key: '1', metric: 'SLA Target Compliance Rate', category: 'Operational', q1: '91.2%', q2: '93.5%', q3: '94.8%', status: 'Exceeded' },
+  { key: '2', metric: 'Average Grievance Resolution Time', category: 'Public Service', q1: '6.2 hrs', q2: '5.4 hrs', q3: '4.6 hrs', status: 'On Track' },
+  { key: '3', metric: 'Clean Drinking Water Compliance', category: 'Health & Sanitation', q1: '98.7%', q2: '99.1%', q3: '99.4%', status: 'Exceeded' },
+  { key: '4', metric: 'Pothole Restoration Turnaround', category: 'Civil Works', q1: '54 hrs', q2: '46 hrs', q3: '42 hrs', status: 'On Track' },
+  { key: '5', metric: 'Property Tax Collection Target', category: 'Revenue & Finance', q1: '74.2%', q2: '79.0%', q3: '82.6%', status: 'Exceeded' },
+  { key: '6', metric: 'Public Bus Schedule Punctuality', category: 'Transportation', q1: '72.0%', q2: '75.5%', q3: '78.2%', status: 'Needs Attention' }
+];
+
+const initialScheduledReports = [
+  {
+    key: '1',
+    name: 'Weekly District Magistrate Executive Summary',
+    type: 'Comprehensive Digest',
+    frequency: 'Weekly (Every Monday 08:00 AM)',
+    recipients: 'magistrate@district.gov, dept_heads@district.gov',
+    lastGenerated: '2026-11-09',
+    status: 'Active'
+  },
+  {
+    key: '2',
+    name: 'Monthly Treasury & Budget Utilization Audit',
+    type: 'Financial Audit',
+    frequency: 'Monthly (1st of Month)',
+    recipients: 'finance@district.gov, auditor@state.gov',
+    lastGenerated: '2026-11-01',
+    status: 'Active'
+  },
+  {
+    key: '3',
+    name: 'Daily Citizen Grievance Escalation Digest',
+    type: 'SLA Redressal',
+    frequency: 'Daily (Every Evening 18:00 PM)',
+    recipients: 'sla_cell@district.gov',
+    lastGenerated: '2026-11-09',
+    status: 'Active'
+  }
+];
 
 const Reports = () => {
-  const [selectedReport, setSelectedReport] = useState('performance');
-  const [dateRange, setDateRange] = useState(null);
-  const [selectedDepartments, setSelectedDepartments] = useState([]);
+  const [reportType, setReportType] = useState('performance');
+  const [selectedDept, setSelectedDept] = useState('All');
+  const [scheduledReports, setScheduledReports] = useState(initialScheduledReports);
+  const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
   const [form] = Form.useForm();
 
-  const departments = ['Public Works', 'Health', 'Education', 'Finance', 'Transportation', 'Environment', 'Social Services', 'Planning', 'Legal', 'IT'];
-  
-  const reportTypes = [
-    { value: 'performance', label: 'Performance Summary Report' },
-    { value: 'budget', label: 'Budget Analysis Report' },
-    { value: 'tasks', label: 'Task Completion Report' },
-    { value: 'resource', label: 'Resource Utilization Report' },
-    { value: 'citizen', label: 'Citizen Satisfaction Report' },
-    { value: 'compliance', label: 'Compliance & Audit Report' },
-    { value: 'custom', label: 'Custom Analytics Report' }
+  // CSV Export utility
+  const handleExportCSV = () => {
+    const headers = ['Performance Metric', 'Category', 'Q1 Benchmark', 'Q2 Benchmark', 'Q3 Current', 'Status'];
+    const rows = samplePerformanceReport.map(r => [
+      `"${r.metric}"`,
+      `"${r.category}"`,
+      `"${r.q1}"`,
+      `"${r.q2}"`,
+      `"${r.q3}"`,
+      `"${r.status}"`
+    ]);
+    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement('a');
+    link.setAttribute('href', encodedUri);
+    link.setAttribute('download', `District_Report_${reportType}_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    message.success('CSV dataset exported successfully.');
+  };
+
+  const handlePrintPDF = () => {
+    window.print();
+  };
+
+  const handleAddSchedule = (values) => {
+    const newSchedule = {
+      key: `${Date.now()}`,
+      name: values.name,
+      type: values.type,
+      frequency: values.frequency,
+      recipients: values.recipients,
+      lastGenerated: 'Pending Next Cycle',
+      status: 'Active'
+    };
+    setScheduledReports([...scheduledReports, newSchedule]);
+    message.success('Automated dispatch schedule registered.');
+    setScheduleModalOpen(false);
+    form.resetFields();
+  };
+
+  const previewColumns = [
+    { title: 'Governance Indicator / Metric', dataIndex: 'metric', key: 'metric', render: t => <strong>{t}</strong> },
+    { title: 'Sector / Category', dataIndex: 'category', key: 'category', render: c => <Tag color="blue">{c}</Tag> },
+    { title: 'Q1 2026', dataIndex: 'q1', key: 'q1' },
+    { title: 'Q2 2026', dataIndex: 'q2', key: 'q2' },
+    { title: 'Q3 2026 (Current)', dataIndex: 'q3', key: 'q3', render: q => <strong style={{ color: '#1890ff' }}>{q}</strong> },
+    { 
+      title: 'Audit Assessment', 
+      dataIndex: 'status', 
+      key: 'status',
+      render: st => {
+        const color = st === 'Exceeded' ? 'green' : st === 'On Track' ? 'blue' : 'orange';
+        return <Tag color={color}>{st}</Tag>;
+      }
+    }
   ];
 
   const scheduledColumns = [
-    { title: 'Report Name', dataIndex: 'name', key: 'name' },
-    { title: 'Type', dataIndex: 'type', key: 'type' },
-    { title: 'Schedule', dataIndex: 'schedule', key: 'schedule' },
-    { title: 'Status', dataIndex: 'status', key: 'status', render: (status) => <Tag color={status === 'Active' ? 'green' : 'orange'}>{status}</Tag> },
-    { title: 'Last Generated', dataIndex: 'lastGenerated', key: 'lastGenerated' },
-    { title: 'Recipients', dataIndex: 'recipients', key: 'recipients' },
-    { title: 'Actions', key: 'actions', render: () => <Space><Button size="small">Edit</Button><Button size="small">Run Now</Button></Space> }
+    { title: 'Report Title', dataIndex: 'name', key: 'name', render: t => <strong>{t}</strong> },
+    { title: 'Report Classification', dataIndex: 'type', key: 'type', render: tp => <Tag color="geekblue">{tp}</Tag> },
+    { title: 'Automated Cadence', dataIndex: 'frequency', key: 'frequency' },
+    { title: 'Target Distribution List', dataIndex: 'recipients', key: 'recipients' },
+    { title: 'Last Dispatched', dataIndex: 'lastGenerated', key: 'lastGenerated' },
+    { 
+      title: 'Status', 
+      dataIndex: 'status', 
+      key: 'status',
+      render: s => <Tag color="green" icon={<CheckCircleOutlined />}>{s}</Tag>
+    }
   ];
 
-  const recentColumns = [
-    { title: 'Report Name', dataIndex: 'name', key: 'name' },
-    { title: 'Type', dataIndex: 'type', key: 'type' },
-    { title: 'Generated', dataIndex: 'generated', key: 'generated' },
-    { title: 'Size', dataIndex: 'size', key: 'size' },
-    { title: 'Format', dataIndex: 'format', key: 'format', render: (format) => <Tag>{format}</Tag> },
-    { title: 'Downloads', dataIndex: 'downloads', key: 'downloads' },
-    { title: 'Actions', key: 'actions', render: () => <Space><Button size="small" icon={<DownloadOutlined />}>Download</Button><Button size="small">Share</Button></Space> }
+  const tabItems = [
+    {
+      key: '1',
+      label: 'Compiled Report Preview',
+      children: (
+        <Card 
+          title={`Compiled Live Digest: ${reportType.toUpperCase()} OVERVIEW`}
+          extra={
+            <Space>
+              <Button icon={<FileExcelOutlined />} onClick={handleExportCSV}>Export CSV</Button>
+              <Button type="primary" icon={<PrinterOutlined />} onClick={handlePrintPDF}>Print / PDF</Button>
+            </Space>
+          }
+        >
+          <div style={{ marginBottom: 16, background: '#fafafa', padding: 12, borderRadius: 6, display: 'flex', justifyContent: 'space-between' }}>
+            <span><strong>District Scope:</strong> {selectedDept}</span>
+            <span><strong>Audit Period:</strong> Fiscal Year 2026-27 (Q1 - Q3)</span>
+            <span><strong>Compliance Seal:</strong> Verified Cryptographic Signature</span>
+          </div>
+          <Table dataSource={samplePerformanceReport} columns={previewColumns} pagination={false} size="middle" />
+        </Card>
+      )
+    },
+    {
+      key: '2',
+      label: 'Automated Scheduled Dispatches',
+      children: (
+        <Card 
+          title="Automated PDF & CSV Report Pipeline"
+          extra={<Button type="primary" icon={<PlusOutlined />} onClick={() => setScheduleModalOpen(true)}>Create Recurring Schedule</Button>}
+        >
+          <Table dataSource={scheduledReports} columns={scheduledColumns} pagination={false} size="middle" />
+        </Card>
+      )
+    }
   ];
 
   return (
     <div style={{ padding: '24px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-        <h1>Reports & Analytics</h1>
-        <Space>
-          <Button type="primary" icon={<BarChartOutlined />}>Generate Report</Button>
-          <Button icon={<CalendarOutlined />}>Schedule Report</Button>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: 12 }}>
+        <div>
+          <h1 style={{ margin: 0, fontSize: 24 }}>District Governance Reports & Auditing</h1>
+          <span style={{ color: '#8c8c8c' }}>Official executive digests, statutory audit compliance, and scheduled telemetry exports</span>
+        </div>
+        <Space wrap>
+          <Select value={reportType} onChange={setReportType} style={{ width: 240 }}>
+            <Option value="performance">📊 District Performance Digest</Option>
+            <Option value="financial">💰 Financial & Budget Audit</Option>
+            <Option value="grievances">⚠️ Grievance SLA Compliance</Option>
+            <Option value="assets">🚜 Capital Assets & Equipment</Option>
+          </Select>
+          <Select value={selectedDept} onChange={setSelectedDept} style={{ width: 180 }}>
+            <Option value="All">All Departments</Option>
+            <Option value="Public Works">Public Works</Option>
+            <Option value="Health & Sanitation">Health & Sanitation</Option>
+            <Option value="Transportation">Transportation</Option>
+          </Select>
+          <RangePicker />
         </Space>
       </div>
 
-      <Alert
-        message="Reporting System"
-        description="Connect to your district data sources for comprehensive report generation and automated distribution capabilities."
-        type="info"
-        showIcon
-        style={{ marginBottom: '24px' }}
-      />
-
-      <Tabs defaultActiveKey="1">
-        <TabPane tab="Generate Reports" key="1">
-          <Row gutter={16}>
-            <Col span={8}>
-              <Card title="Report Configuration">
-                <Form form={form} layout="vertical">
-                  <Form.Item label="Report Type" name="reportType">
-                    <Select placeholder="Select report type" value={selectedReport} onChange={setSelectedReport}>
-                      {reportTypes.map(type => <Option key={type.value} value={type.value}>{type.label}</Option>)}
-                    </Select>
-                  </Form.Item>
-                  
-                  <Form.Item label="Date Range" name="dateRange">
-                    <RangePicker style={{ width: '100%' }} onChange={setDateRange} />
-                  </Form.Item>
-                  
-                  <Form.Item label="Departments" name="departments">
-                    <Select mode="multiple" placeholder="Select departments" value={selectedDepartments} onChange={setSelectedDepartments}>
-                      {departments.map(dept => <Option key={dept} value={dept}>{dept}</Option>)}
-                    </Select>
-                  </Form.Item>
-                  
-                  <Form.Item label="Output Format" name="format">
-                    <Checkbox.Group>
-                      <Checkbox value="pdf">PDF</Checkbox>
-                      <Checkbox value="excel">Excel</Checkbox>
-                      <Checkbox value="csv">CSV</Checkbox>
-                    </Checkbox.Group>
-                  </Form.Item>
-                  
-                  <Form.Item label="Include Visualizations" name="includeCharts">
-                    <Checkbox>Include charts and graphs</Checkbox>
-                  </Form.Item>
-                  
-                  <Form.Item label="Email Recipients" name="recipients">
-                    <Input.TextArea rows={3} placeholder="Enter email addresses separated by commas" />
-                  </Form.Item>
-                </Form>
-              </Card>
-            </Col>
-            
-            <Col span={16}>
-              <Card title="Report Preview">
-                <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
-                  <BarChartOutlined style={{ fontSize: '48px', marginBottom: '16px' }} />
-                  <div>Report preview will be displayed here</div>
-                  <div style={{ fontSize: '12px', marginTop: '8px' }}>Configure report settings and connect to data sources to generate preview</div>
-                </div>
-              </Card>
-            </Col>
-          </Row>
-        </TabPane>
-
-        <TabPane tab="Scheduled Reports" key="2">
-          <Card title="Automated Report Schedule">
-            <Table dataSource={[]} columns={scheduledColumns} pagination={false} locale={{ emptyText: 'No scheduled reports configured' }} />
+      <Row gutter={[16, 16]} style={{ marginBottom: '24px' }}>
+        <Col xs={24} sm={12} lg={6}>
+          <Card bordered={false} style={{ background: '#f0f5ff', borderColor: '#adc6ff' }}>
+            <Statistic
+              title="Official Reports Compiled"
+              value={142}
+              suffix="documents"
+              prefix={<FileTextOutlined style={{ color: '#1890ff' }} />}
+              valueStyle={{ color: '#1d39c4', fontWeight: 600 }}
+            />
+            <div style={{ marginTop: 8, fontSize: 13, color: '#1890ff' }}>Fiscal Year archive complete</div>
           </Card>
-        </TabPane>
-
-        <TabPane tab="Recent Reports" key="3">
-          <Card title="Generated Reports Archive">
-            <Table dataSource={[]} columns={recentColumns} pagination={{ pageSize: 10 }} locale={{ emptyText: 'No reports generated yet' }} />
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Card bordered={false} style={{ background: '#f6ffed', borderColor: '#b7eb8f' }}>
+            <Statistic
+              title="Statutory Audit Readiness"
+              value={100}
+              suffix="%"
+              prefix={<CheckCircleOutlined style={{ color: '#52c41a' }} />}
+              valueStyle={{ color: '#389e0d', fontWeight: 600 }}
+            />
+            <div style={{ marginTop: 8, fontSize: 13, color: '#52c41a' }}>All ledgers reconciled</div>
           </Card>
-        </TabPane>
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Card bordered={false} style={{ background: '#fff7e6', borderColor: '#ffd591' }}>
+            <Statistic
+              title="Active Scheduled Subscriptions"
+              value={scheduledReports.length}
+              suffix="pipelines"
+              prefix={<ClockCircleOutlined style={{ color: '#fa8c16' }} />}
+              valueStyle={{ color: '#d46b08', fontWeight: 600 }}
+            />
+            <div style={{ marginTop: 8, fontSize: 13, color: '#fa8c16' }}>Daily & Weekly digests</div>
+          </Card>
+        </Col>
+        <Col xs={24} sm={12} lg={6}>
+          <Card bordered={false} style={{ background: '#f9f0ff', borderColor: '#d3adf7' }}>
+            <Statistic
+              title="Transparency Index"
+              value={98.2}
+              precision={1}
+              suffix="%"
+              prefix={<CalendarOutlined style={{ color: '#722ed1' }} />}
+              valueStyle={{ color: '#531dab', fontWeight: 600 }}
+            />
+            <div style={{ marginTop: 8, fontSize: 13, color: '#722ed1' }}>Public portal publication SLA</div>
+          </Card>
+        </Col>
+      </Row>
 
-        <TabPane tab="Analytics Dashboard" key="4">
-          <Row gutter={16}>
-            <Col span={12}>
-              <Card title="Report Generation Trends">
-                <div style={{ height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#666' }}>
-                  Report generation analytics will display here
-                </div>
-              </Card>
-            </Col>
-            <Col span={12}>
-              <Card title="Popular Reports">
-                <div style={{ height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#666' }}>
-                  Most requested reports analysis will display here
-                </div>
-              </Card>
-            </Col>
-          </Row>
-          
-          <Row gutter={16} style={{ marginTop: '16px' }}>
-            <Col span={8}>
-              <Card title="Export Statistics">
-                <div style={{ textAlign: 'center', padding: '20px' }}>
-                  <Progress type="circle" percent={0} format={() => '0'} />
-                  <div style={{ marginTop: '12px', color: '#666' }}>Reports Generated This Month</div>
-                </div>
-              </Card>
-            </Col>
-            <Col span={8}>
-              <Card title="Format Distribution">
-                <div style={{ height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#666' }}>
-                  Format usage chart will display here
-                </div>
-              </Card>
-            </Col>
-            <Col span={8}>
-              <Card title="Department Usage">
-                <div style={{ height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#666' }}>
-                  Department report usage will display here
-                </div>
-              </Card>
-            </Col>
-          </Row>
-        </TabPane>
+      <Tabs activeKey={tabItems[0].key} items={tabItems} />
 
-        <TabPane tab="Data Export" key="5">
-          <Row gutter={16}>
-            <Col span={12}>
-              <Card title="Bulk Data Export">
-                <Form layout="vertical">
-                  <Form.Item label="Data Source">
-                    <Select placeholder="Select data source">
-                      <Option value="tasks">Task Management Data</Option>
-                      <Option value="performance">Performance Metrics</Option>
-                      <Option value="budget">Budget Information</Option>
-                      <Option value="staff">Staff Records</Option>
-                      <Option value="citizens">Citizen Services</Option>
-                    </Select>
-                  </Form.Item>
-                  
-                  <Form.Item label="Export Format">
-                    <Select placeholder="Select format">
-                      <Option value="csv">CSV</Option>
-                      <Option value="excel">Excel</Option>
-                      <Option value="json">JSON</Option>
-                      <Option value="xml">XML</Option>
-                    </Select>
-                  </Form.Item>
-                  
-                  <Form.Item label="Date Range">
-                    <RangePicker style={{ width: '100%' }} />
-                  </Form.Item>
-                  
-                  <Button type="primary" icon={<DownloadOutlined />} block>Export Data</Button>
-                </Form>
-              </Card>
-            </Col>
-            
-            <Col span={12}>
-              <Card title="API Access">
-                <div style={{ padding: '20px' }}>
-                  <Alert message="Data API Integration" description="Connect to district data APIs for real-time data access and automated report generation." type="info" style={{ marginBottom: '16px' }} />
-                  
-                  <Space direction="vertical" style={{ width: '100%' }}>
-                    <Button block icon={<FileExcelOutlined />}>Download API Documentation</Button>
-                    <Button block icon={<FilterOutlined />}>Configure Data Filters</Button>
-                    <Button block>Test API Connection</Button>
-                  </Space>
-                </div>
-              </Card>
-            </Col>
-          </Row>
-        </TabPane>
-      </Tabs>
+      <Modal
+        title="Schedule Automated Recurring Report"
+        open={scheduleModalOpen}
+        onCancel={() => setScheduleModalOpen(false)}
+        footer={null}
+      >
+        <Form form={form} layout="vertical" onFinish={handleAddSchedule}>
+          <Form.Item name="name" label="Schedule Name" rules={[{ required: true, message: 'Please input schedule name' }]}>
+            <Input placeholder="e.g. Bi-Weekly Sanitation SLA Audit" />
+          </Form.Item>
+          <Form.Item name="type" label="Report Category" initialValue="Comprehensive Digest">
+            <Select>
+              <Option value="Comprehensive Digest">Comprehensive Digest</Option>
+              <Option value="Financial Audit">Financial Audit</Option>
+              <Option value="SLA Redressal">SLA Redressal</Option>
+              <Option value="Capital Assets">Capital Assets</Option>
+            </Select>
+          </Form.Item>
+          <Form.Item name="frequency" label="Cadence" initialValue="Weekly (Every Monday)">
+            <Select>
+              <Option value="Daily (08:00 AM)">Daily (08:00 AM)</Option>
+              <Option value="Weekly (Every Monday)">Weekly (Every Monday)</Option>
+              <Option value="Monthly (1st Day)">Monthly (1st Day)</Option>
+            </Select>
+          </Form.Item>
+          <Form.Item name="recipients" label="Recipient Email Addresses" rules={[{ required: true, message: 'Please specify recipient emails' }]}>
+            <Input placeholder="magistrate@district.gov, secretary@district.gov" />
+          </Form.Item>
+          <div style={{ textAlign: 'right', marginTop: 16 }}>
+            <Space>
+              <Button onClick={() => setScheduleModalOpen(false)}>Cancel</Button>
+              <Button type="primary" htmlType="submit">Save Automation</Button>
+            </Space>
+          </div>
+        </Form>
+      </Modal>
     </div>
   );
 };

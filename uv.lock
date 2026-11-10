@@ -984,7 +984,7 @@ wheels = [
 ]
 
 [[package]]
-name = "repl-nix-workspace"
+name = "smart-district-administration"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
